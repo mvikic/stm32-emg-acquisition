@@ -1,0 +1,2 @@
+../Core/Src/transmiters.c:6:6:send_number_with_newline	4
+../Core/Src/transmiters.c:43:6:send_float_with_newline	8
