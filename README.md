@@ -1,6 +1,6 @@
 # STM32 EMG Acquisition and Filtering with FIR/IIR
 
-This project implements an EMG (Electromyography) signal acquisition and filtering system using an STM32F407G-DISC1 microcontroller. The system applies FIR (Finite Impulse Response) and IIR (Infinite Impulse Response) filters to process the acquired EMG signals, eliminating power grid noise (50Hz) and filtering out frequencies above 500Hz.
+This project implements an EMG (Electromyography) signal acquisition and filtering system using an STM32F407G microcontroller. The system applies FIR (Finite Impulse Response) and IIR (Infinite Impulse Response) filters to process the acquired EMG signals, eliminating power grid noise (50Hz) and filtering out frequencies above 500Hz.
 
 ## Table of Contents
 
@@ -11,19 +11,20 @@ This project implements an EMG (Electromyography) signal acquisition and filteri
 - [Implementation Details](#implementation-details)
   - [Circular Buffer](#circular-buffer)
   - [FIR Filter Implementation](#fir-filter-implementation)
-  - [Storing Coefficients in Flash Memory](#storing-coefficients-in-flash-memory)
 - [How to Build and Run](#how-to-build-and-run)
 - [Usage](#usage)
 - [License](#license)
 
 ## Introduction
 
-This project focuses on the acquisition and processing of EMG signals using the STM32F407G-DISC1 microcontroller. The primary goal is to acquire clean EMG signals by filtering out unwanted frequencies, specifically the 50Hz power grid noise and frequencies above 500Hz. The system uses FIR and IIR filters, with coefficients designed using Python's `scipy` library.
+This project focuses on the acquisition and processing of EMG signals using the STM32F407G-DISC1 development borad. The primary goal is to acquire clean EMG signals by filtering out unwanted frequencies, specifically the 50Hz power grid noise and frequencies above 500Hz. The system uses FIR and IIR filters, with coefficients designed using Python's `scipy` library.
 
 ## Hardware Requirements
 
 - **STM32F407G-DISC1** development board
 - **MikroE EMG Click Module**
+- **EMG electrodes** 
+- **3.5mm cable** with three electrode configuration
 - **PC** for programming and debugging
 - **USB Cable** for power and data transfer
 
@@ -38,32 +39,10 @@ This project focuses on the acquisition and processing of EMG signals using the 
 
 The FIR and IIR filters are designed using Python's `scipy` library. The design parameters are:
 
-- **Sampling Frequency**: 2500 Hz
+- **Sampling Frequency**: 1000 Hz
 - **Band-Stop Filter**: Attenuates 50Hz (power grid noise)
 - **Low-Pass Filter**: Attenuates frequencies above 500Hz
 
-### Python Code for Filter Design
-
-```python
-import numpy as np
-from scipy.signal import firwin, iirnotch, lfilter
-
-# Sampling frequency and desired specs
-fs = 2500.0  # Sampling frequency in Hz
-f0 = 50.0  # Frequency to be removed from signal (Hz)
-Q = 30.0  # Quality factor for the notch filter
-cutoff = 500.0  # Low-pass cutoff frequency
-
-# IIR notch filter for 50Hz
-b_notch, a_notch = iirnotch(f0, Q, fs)
-
-# FIR low-pass filter
-numtaps = 101  # Filter order
-b_lowpass = firwin(numtaps, cutoff / (0.5 * fs), window='hamming')
-
-# Combine filters for final design
-b_combined = np.convolve(b_lowpass, b_notch)
-```
 
 ### Circular Buffer Initialization
 
