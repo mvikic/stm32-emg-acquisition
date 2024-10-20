@@ -50,7 +50,8 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 uint16_t adc_val;
-uint8_t use_fir_filter = 0; // Flag to toggle between filters
+//uint8_t use_fir_filter = 0; // Flag to toggle between filters
+uint8_t filter_mode = 0;  // 0: RAW, 1: FIR, 2: IIR
 float emg_signal_value;
 float iir_prev_output = 0.0f;
 float fir_buffer[BUFFER_SIZE] = {0};
@@ -131,26 +132,45 @@ float FIR_Filter(CircularBuffer* cb, float input) {
 /* Function to Update LED Indicator */
 void Update_LED_Indicator(void)
 {
-    if (use_fir_filter) {
-        HAL_GPIO_WritePin(GPIOD, LD5_Red_Pin, GPIO_PIN_SET);   // Turn on Red LED when FIR filter is active
-        HAL_GPIO_WritePin(GPIOD, LD6_Blue_Pin, GPIO_PIN_RESET); // Turn off Blue LED
-    } else {
-        HAL_GPIO_WritePin(GPIOD, LD5_Red_Pin, GPIO_PIN_RESET); // Turn off Red LED
-        HAL_GPIO_WritePin(GPIOD, LD6_Blue_Pin, GPIO_PIN_SET);  // Turn on Blue LED when no filter is active
-    }
+//    if (use_fir_filter) {
+//        HAL_GPIO_WritePin(GPIOD, LD5_Red_Pin, GPIO_PIN_SET);   // Turn on Red LED when FIR filter is active
+//        HAL_GPIO_WritePin(GPIOD, LD6_Blue_Pin, GPIO_PIN_RESET); // Turn off Blue LED
+//    } else {
+//        HAL_GPIO_WritePin(GPIOD, LD5_Red_Pin, GPIO_PIN_RESET); // Turn off Red LED
+//        HAL_GPIO_WritePin(GPIOD, LD6_Blue_Pin, GPIO_PIN_SET);  // Turn on Blue LED when no filter is active
+//    }
+	// Turn off all LEDs initially
+	HAL_GPIO_WritePin(GPIOD, LD4_Green_Pin|LD3_Orange_Pin|LD5_Red_Pin|LD6_Blue_Pin, GPIO_PIN_RESET);
+
+	// Set LED based on the active filter mode
+	if (filter_mode == 0) {
+		HAL_GPIO_WritePin(GPIOD, LD6_Blue_Pin, GPIO_PIN_SET);   // Blue LED for RAW mode
+	} else if (filter_mode == 1) {
+		HAL_GPIO_WritePin(GPIOD, LD4_Green_Pin, GPIO_PIN_SET);  // Green LED for FIR mode
+	} else if (filter_mode == 2) {
+		HAL_GPIO_WritePin(GPIOD, LD3_Orange_Pin, GPIO_PIN_SET); // Orange LED for IIR mode
+	}
 }
 
 void Poll_Button(void)
 {
     // Poll the button state
-    if (HAL_GPIO_ReadPin(GPIO_BUTTON_GPIO_Port, GPIO_BUTTON_Pin) == GPIO_PIN_RESET) {
-        HAL_Delay(DEBOUNCE_DELAY); // Debounce delay
-        if (HAL_GPIO_ReadPin(GPIO_BUTTON_GPIO_Port, GPIO_BUTTON_Pin) == GPIO_PIN_RESET) {
-            use_fir_filter = !use_fir_filter; // Toggle the filter flag
-            Update_LED_Indicator(); // Update LEDs based on filter selection
-            while (HAL_GPIO_ReadPin(GPIO_BUTTON_GPIO_Port, GPIO_BUTTON_Pin) == GPIO_PIN_RESET); // Wait for button release
-        }
-    }
+//    if (HAL_GPIO_ReadPin(GPIO_BUTTON_GPIO_Port, GPIO_BUTTON_Pin) == GPIO_PIN_RESET) {
+//        HAL_Delay(DEBOUNCE_DELAY); // Debounce delay
+//        if (HAL_GPIO_ReadPin(GPIO_BUTTON_GPIO_Port, GPIO_BUTTON_Pin) == GPIO_PIN_RESET) {
+//            use_fir_filter = !use_fir_filter; // Toggle the filter flag
+//            Update_LED_Indicator(); // Update LEDs based on filter selection
+//            while (HAL_GPIO_ReadPin(GPIO_BUTTON_GPIO_Port, GPIO_BUTTON_Pin) == GPIO_PIN_RESET); // Wait for button release
+//        }
+//    }
+	if (HAL_GPIO_ReadPin(GPIO_BUTTON_GPIO_Port, GPIO_BUTTON_Pin) == GPIO_PIN_RESET) {
+		HAL_Delay(DEBOUNCE_DELAY); // Debounce delay
+		if (HAL_GPIO_ReadPin(GPIO_BUTTON_GPIO_Port, GPIO_BUTTON_Pin) == GPIO_PIN_RESET) {
+			filter_mode = (filter_mode + 1) % 3;  // Cycle through 0 (RAW), 1 (FIR), 2 (IIR)
+			Update_LED_Indicator(); // Update LEDs based on the current mode
+			while (HAL_GPIO_ReadPin(GPIO_BUTTON_GPIO_Port, GPIO_BUTTON_Pin) == GPIO_PIN_RESET); // Wait for button release
+		}
+	}
 }
 
 /* USER CODE END 0 */
@@ -448,21 +468,54 @@ static void MX_GPIO_Init(void)
 //	HAL_GPIO_TogglePin(GPIOD, LD4_Green_Pin);
 //}
 // ############## TESTED ####################
+//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
+//{
+//    // Get the ADC value
+//    adc_val = HAL_ADC_GetValue(&hadc1);
+//    float voltage = REF_VOLTAGE * adc_val / ADC_MAX_VAL - DC_BIAS;
+//
+//    // Process the voltage based on the filter selection
+//    if (use_fir_filter) {
+//        // Apply FIR filter if the flag is set
+////        emg_signal_value = FIR_Filter(voltage, fir_buffer, BUFFER_SIZE);
+//    	emg_signal_value = FIR_Filter(&cb, voltage);
+//    } else {
+//        // No filtering, just scale the voltage
+//        emg_signal_value = voltage * EMG_SIGNAL_MAX_VOLTAGE;
+//    }
+//
+//    // Send the processed signal value over UART
+//    sprintf(buffer, "%.6f\r\n", emg_signal_value);
+//    UART_Transmit(&huart2, buffer);
+//
+//    // Toggle the Green LED to indicate ADC activity
+//    HAL_GPIO_TogglePin(GPIOD, LD4_Green_Pin);
+//}
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
     // Get the ADC value
     adc_val = HAL_ADC_GetValue(&hadc1);
     float voltage = REF_VOLTAGE * adc_val / ADC_MAX_VAL - DC_BIAS;
 
-    // Process the voltage based on the filter selection
-    if (use_fir_filter) {
-        // Apply FIR filter if the flag is set
-//        emg_signal_value = FIR_Filter(voltage, fir_buffer, BUFFER_SIZE);
+    if (filter_mode == 0) {
+    	// RAW signal, no filtering just voltage scaling
+    	emg_signal_value = voltage * EMG_SIGNAL_MAX_VOLTAGE;
+    } else if (filter_mode == 1) {
+    	// FIR filtering
     	emg_signal_value = FIR_Filter(&cb, voltage);
-    } else {
-        // No filtering, just scale the voltage
-        emg_signal_value = voltage * EMG_SIGNAL_MAX_VOLTAGE;
+    } else if (filter == 2) {
+    	// IIR filtering
+    	emg_signal_value = IIR_Filter()
     }
+    // Process the voltage based on the filter selection
+//    if (use_fir_filter) {
+//        // Apply FIR filter if the flag is set
+////        emg_signal_value = FIR_Filter(voltage, fir_buffer, BUFFER_SIZE);
+//    	emg_signal_value = FIR_Filter(&cb, voltage);
+//    } else {
+//        // No filtering, just scale the voltage
+//        emg_signal_value = voltage * EMG_SIGNAL_MAX_VOLTAGE;
+//    }
 
     // Send the processed signal value over UART
     sprintf(buffer, "%.6f\r\n", emg_signal_value);

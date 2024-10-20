@@ -1,42 +1,75 @@
-from scipy.signal import firwin, freqz, lfilter
-import matplotlib.pyplot as plt
 import numpy as np
+from scipy.signal import firwin, freqz, lfilter
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import serial
+import time
 
 # Sampling frequency
 fs = 1000  # Hz
 
 # Band-stop filter parameters
 notch_freq = 50  # Frequency to be removed (Hz)
-bandwidth = 2     # Bandwidth around the notch frequency (Hz)
+bandwidth = 2  # Bandwidth around the notch frequency (Hz)
 
 # Low-pass filter parameters
 cutoff_freq = 500  # Cutoff frequency (Hz)
 
 # Filter orders
-numtaps_notch = 13  # Order of the notch filter
-numtaps_lowpass = 13  # Order of the low-pass filter
+num_taps_notch = 21  # Order of the notch filter
+num_taps_lowpass = 21  # Order of the low-pass filter
+
+
+# Function to record EMG data
+def record_emg_data(duration=5, filename='emg_data.txt', port='COM7', baudrate=460800):
+    try:
+        ser = serial.Serial(port, baudrate, timeout=1)
+        print("Recording EMG data...")
+
+        time.sleep(2)  # Wait for the connection to stabilize
+
+        with open(filename, 'w') as f:
+            start_time = time.time()
+            while time.time() - start_time < duration:
+                line = ser.readline().decode('utf-8').strip()
+                if line:
+                    f.write(f"{line}\n")
+        print("EMG data recorded successfully.")
+        ser.close()
+    except Exception as e:
+        print(f"Error recording EMG data: {e}")
+
+
+# Function to read EMG data from file
+def read_emg_data_from_file(filename='emg_data.txt'):
+    try:
+        return np.loadtxt(filename)
+    except Exception as e:
+        print(f"Error reading EMG data from file: {e}")
+        return None
+
+
+# Function to ask user for input
+def ask_user_input(prompt):
+    while True:
+        user_input = input(f"{prompt} (type 'yes' or 'no'): ").strip().lower()
+        if user_input in ['yes', 'no']:
+            return user_input  # Return valid input
+        print("Invalid input. Please type 'yes' or 'no'.")
+
 
 # Design the band-stop filter
-notch_coefficients = firwin(numtaps_notch, [notch_freq - bandwidth/2, notch_freq + bandwidth/2],
-                            fs=fs, pass_zero='bandstop')
+notch_coefficients = firwin(num_taps_notch, [notch_freq - bandwidth / 2, notch_freq + bandwidth / 2], fs=fs,
+                            pass_zero="bandstop")
 
 # Design the low-pass filter
-lowpass_coefficients = firwin(numtaps_lowpass, cutoff_freq / (0.5 * fs), fs=fs)
+lowpass_coefficients = firwin(num_taps_lowpass, cutoff_freq / (0.5 * fs), fs=fs)
 
-# Combined filter coefficients (convolution of the two filters)
+# Combined filter coefficients
 combined_coefficients = np.convolve(notch_coefficients, lowpass_coefficients)
 
 # Frequency response
 w, h = freqz(combined_coefficients, worN=8000, fs=fs)
-
-# Plot frequency response
-plt.figure()
-plt.plot(w,  abs(h), 'b')
-plt.title('Combined Frequency Response')
-plt.xlabel('Frequency (Hz)')
-plt.ylabel('Gain')
-plt.grid()
-plt.show()
 
 # Display filter coefficients
 print("Band-Stop Filter Coefficients:", notch_coefficients)
@@ -45,32 +78,76 @@ print("Combined Filter Coefficients:", combined_coefficients)
 print("Combined Filter Order: ", combined_coefficients.size)
 
 
-def coefficients_to_c_array(coeffs, array_name):
-    c_array = f"const float {array_name}[] = {{\n"
-    c_array += ", ".join(f"{coeff:.6f}" for coeff in coeffs)
-    c_array += "\n};\n"
-    return c_array
-
-
-# Example signal processing (use with your EMG data)
+# Function to apply the FIR filter
 def apply_filter(signal, coefficients):
     return lfilter(coefficients, 1.0, signal)
 
 
+# Convert coefficients to C array format
+def coefficients_to_c_array(coefficients, array_name):
+    c_array = f"const float {array_name}[] = {{\n"
+    c_array += ", ".join(f"{coefficient:.6f}" for coefficient in coefficients)
+    c_array += "\n};\n"
+    return c_array
+
+
 print(coefficients_to_c_array(combined_coefficients, "fir_coefficients"))
 
-# Create a sample signal for demonstration (e.g., a signal with noise)
-t = np.arange(0, 1.0, 1.0 / fs)
-signal = np.sin(2 * np.pi * 100 * t) + np.sin(2 * np.pi * 50 * t)  # Signal with 100 Hz and 50 Hz components
-filtered_signal = apply_filter(signal, combined_coefficients)
+# Main execution
+if __name__ == "__main__":
+    # Ask the user if they want to record a new sample
+    user_decision = ask_user_input("Do you want to record a new EMG sample?")
 
-# Plot sample signal
-plt.figure()
-plt.plot(t, signal, 'b', label='Original Signal')
-plt.plot(t, filtered_signal, 'r', label='Filtered Signal')
-plt.title('Signal Before and After Filtering')
-plt.xlabel('Time (s)')
-plt.ylabel('Amplitude')
-plt.legend()
-plt.grid()
-plt.show()
+    # If the user wants to record a new sample
+    if user_decision == "yes":
+        print("You have 3 seconds to prepare...")
+        time.sleep(3)  # Countdown before starting the recording
+        # Record EMG data
+        record_emg_data(duration=5, filename='emg_data.txt', port='COM7', baudrate=460800)
+    else:
+        print("Using stored EMG data...")
+
+    # Read EMG data from file
+    emg_data = read_emg_data_from_file()
+
+    if emg_data is None or len(emg_data) == 0:
+        print("No valid data read from the file.")
+    else:
+        # Cut the first 50 samples
+        emg_data = emg_data[50:]
+
+        # Apply the filter to the EMG data
+        filtered_data = apply_filter(emg_data, combined_coefficients)
+
+        # Time axis for the original signal
+        t = np.arange(len(emg_data)) / fs
+
+        # Create a subplot figure
+        fig = make_subplots(rows=2, cols=1, subplot_titles=("Frequency Response", "Signal Before and After Filtering"))
+
+        # Frequency response plot
+        fig.add_trace(go.Scatter(x=w, y=abs(h), mode="lines", name="Frequency Response", line=dict(color="blue")),
+                      row=1, col=1)
+
+        # Signal plot
+        fig.add_trace(go.Scatter(x=t, y=emg_data, mode="lines", name="Original Signal", line=dict(color="blue")), row=2,
+                      col=1)
+        fig.add_trace(go.Scatter(x=t, y=filtered_data, mode="lines", name="Filtered Signal", line=dict(color="red")),
+                      row=2, col=1)
+
+        # Update layout for a dark background
+        fig.update_layout(
+            title="EMG Data Analysis",
+            paper_bgcolor='rgb(30,30,30)',  # Dark background for the entire figure
+            plot_bgcolor='rgb(50,50,50)',   # Dark background for the plot area
+            font=dict(color='white')          # White font color for visibility
+        )
+
+        # Update axes titles
+        fig.update_xaxes(title_text="Frequency (Hz)", row=1, col=1, title_font=dict(color='white'))
+        fig.update_yaxes(title_text="Gain", row=1, col=1, title_font=dict(color='white'))
+        fig.update_xaxes(title_text="Time (s)", row=2, col=1, title_font=dict(color='white'))
+        fig.update_yaxes(title_text="Amplitude", row=2, col=1, title_font=dict(color='white'))
+
+        # Show the combined figure
+        fig.show()
