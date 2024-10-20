@@ -22,7 +22,7 @@
 *.la
 *.lo
 
-# Shared objects (inc. Windows DLLs)
+# Shared objects (including Windows DLLs)
 *.dll
 *.so
 *.so.*
@@ -50,3 +50,84 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Python Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+pip-wheel-metadata/
+pip-log.txt
+*.egg-info/
+dist/
+build/
+.eggs/
+.installed.cfg
+*.egg
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Pytest
+.cache
+*.cover
+*.coverage
+*.hypothesis/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pylint
+pylint-report.txt
+pylint-*.txt
+
+# Black
+*.pyi
+
+# VSCode and IDE specific files
+*.code-workspace
+.vscode/
+
+# PyCharm settings
+.idea/
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+
+# Environment variables
+.env
+.env.*
+
+# Mac system files
+.DS_Store
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+
+# Linux system files
+*~
+
+# Others
+*.orig
+*.rej
+*.swo
+*.swn
+
+# Ignore local config files
+config.local.json
