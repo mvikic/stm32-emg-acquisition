@@ -23,7 +23,7 @@ This project focuses on the acquisition and processing of EMG signals using the 
 
 - **STM32F407G-DISC1** development board
 - **MikroE EMG Click Module**
-- **EMG electrodes** 
+- **EMG electrodes**
 - **3.5mm cable** with three electrode configuration
 - **PC** for programming and debugging
 - **USB Cable** for power and data transfer
@@ -39,10 +39,11 @@ This project focuses on the acquisition and processing of EMG signals using the 
 
 The FIR and IIR filters are designed using Python's `scipy` library. The design parameters are:
 
-- **Sampling Frequency**: 1000 Hz
+- **Sampling Frequency**: 1500 Hz
 - **Band-Stop Filter**: Attenuates 50Hz (power grid noise)
 - **Low-Pass Filter**: Attenuates frequencies above 500Hz
 
+![image](docs/fir-coeff-calc-example.png)
 
 ### Circular Buffer Initialization
 

@@ -51,7 +51,7 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 uint16_t adc_val;
 //uint8_t use_fir_filter = 0; // Flag to toggle between filters
-uint8_t filter_mode = 0;  // 0: RAW, 1: FIR, 2: IIR
+uint8_t filter_mode = 2;  // 0: RAW, 1: FIR, 2: IIR
 float emg_signal_value;
 float iir_prev_output = 0.0f;
 float fir_buffer[BUFFER_SIZE] = {0};
@@ -60,8 +60,20 @@ char buffer[50];
 //const float fir_coefficients[] = {
 //-0.000000, -0.000000, -0.000001, -0.000001, -0.000001, -0.000001, -0.000002, -0.000002, -0.000002, -0.000002, -0.000003, -0.000003, -0.000003, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000003, -0.000002, -0.000001, 0.000000, 0.000001, 0.000003, 0.000005, 0.000007, 0.000009, 0.000012, 0.000014, 0.000017, 0.000020, 0.000024, 0.000027, 0.000030, 0.000034, 0.000038, 0.000042, 0.000045, 0.000049, 0.000053, 0.000057, 0.000060, 0.000064, 0.000067, 0.000070, 0.000073, 0.001555, 0.001574, 0.001626, 0.001712, 0.001830, 0.001980, 0.002161, 0.002373, 0.002616, 0.002887, 0.003186, 0.003511, 0.003862, 0.004237, 0.004634, 0.005053, 0.005490, 0.005945, 0.006415, 0.006900, 0.007396, 0.007902, 0.008416, 0.008936, 0.009460, 0.009986, 0.010512, 0.011035, 0.011554, 0.012067, 0.012571, 0.013065, 0.013546, 0.014014, 0.014465, 0.014899, 0.015313, 0.015707, 0.016077, 0.016424, 0.016745, 0.017040, 0.017307, 0.017545, 0.017753, 0.017930, 0.018076, 0.018191, 0.018273, 0.018322, 0.018338, 0.018322, 0.018273, 0.018191, 0.018076, 0.017930, 0.017753, 0.017545, 0.017307, 0.017040, 0.016745, 0.016424, 0.016077, 0.015707, 0.015313, 0.014899, 0.014465, 0.014014, 0.013546, 0.013065, 0.012571, 0.012067, 0.011554, 0.011035, 0.010512, 0.009986, 0.009460, 0.008936, 0.008416, 0.007902, 0.007396, 0.006900, 0.006415, 0.005945, 0.005490, 0.005053, 0.004634, 0.004237, 0.003862, 0.003511, 0.003186, 0.002887, 0.002616, 0.002373, 0.002161, 0.001980, 0.001830, 0.001712, 0.001626, 0.001574, 0.001555, 0.000073, 0.000070, 0.000067, 0.000064, 0.000060, 0.000057, 0.000053, 0.000049, 0.000045, 0.000042, 0.000038, 0.000034, 0.000030, 0.000027, 0.000024, 0.000020, 0.000017, 0.000014, 0.000012, 0.000009, 0.000007, 0.000005, 0.000003, 0.000001, 0.000000, -0.000001, -0.000002, -0.000003, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000003, -0.000003, -0.000003, -0.000002, -0.000002, -0.000002, -0.000002, -0.000001, -0.000001, -0.000001, -0.000001, -0.000000, -0.000000
 //};
-const float fir_coefficients[] = {
-0.000002, 0.000006, 0.000013, 0.000024, 0.000040, 0.000059, 0.000078, 0.000090, 0.000088, 0.000062, 0.007484, 0.009486, 0.015446, 0.024768, 0.036530, 0.049571, 0.062610, 0.074371, 0.083702, 0.089692, 0.091757, 0.089692, 0.083702, 0.074371, 0.062610, 0.049571, 0.036530, 0.024768, 0.015446, 0.009486, 0.007484, 0.000062, 0.000088, 0.000090, 0.000078, 0.000059, 0.000040, 0.000024, 0.000013, 0.000006, 0.000002
+//const float fir_coefficients[FILTER_ORDER] = {
+//	0.000002, 0.000006, 0.000013, 0.000024, 0.000040, 0.000059, 0.000078, 0.000090, 0.000088, 0.000062, 0.007484,
+//	0.009486, 0.015446, 0.024768, 0.036530, 0.049571, 0.062610, 0.074371, 0.083702, 0.089692, 0.091757, 0.089692,
+//	0.083702, 0.074371, 0.062610, 0.049571, 0.036530, 0.024768, 0.015446, 0.009486, 0.007484, 0.000062, 0.000088,
+//	0.000090, 0.000078, 0.000059, 0.000040, 0.000024, 0.000013, 0.000006, 0.000002
+//};
+const float fir_coefficients[FILTER_ORDER] = {
+0.000000, 0.000001, 0.000002, 0.000005, 0.000011, 0.000020, 0.000033, 0.000051, 0.000073, 0.000100,
+0.000130, 0.000162, 0.000192, 0.000218, 0.000236, 0.005187, 0.005801, 0.007612, 0.010539, 0.014451,
+0.019175, 0.024503, 0.030201, 0.036021, 0.041709, 0.047016, 0.051714, 0.055598, 0.058499, 0.060292,
+0.060898, 0.060292, 0.058499, 0.055598, 0.051714, 0.047016, 0.041709, 0.036021, 0.030201, 0.024503,
+0.019175, 0.014451, 0.010539, 0.007612, 0.005801, 0.005187, 0.000236, 0.000218, 0.000192, 0.000162,
+0.000130, 0.000100, 0.000073, 0.000051, 0.000033, 0.000020, 0.000011, 0.000005, 0.000002, 0.000001,
+0.000000
 };
 
 typedef struct {
@@ -95,18 +107,6 @@ float IIR_Filter(float input, float *prev_output, float alpha) {
     return *prev_output;
 }
 
-// Example FIR filter (Simple moving average)
-//float FIR_Filter(float input, float *buffer, int buffer_size) {
-//    float sum = 0.0f;
-//    for (int i = buffer_size - 1; i > 0; i--) {
-//        buffer[i] = buffer[i - 1];
-//        sum += buffer[i];
-//    }
-//    buffer[0] = input;
-//    sum += input;
-//    return sum / (float)buffer_size * EMG_SIGNAL_MAX_VOLTAGE;
-//}
-
 void CircularBuffer_Init(CircularBuffer* cb) {
     memset(cb->buffer, 0, sizeof(cb->buffer));
     cb->index = 0;
@@ -132,21 +132,13 @@ float FIR_Filter(CircularBuffer* cb, float input) {
 /* Function to Update LED Indicator */
 void Update_LED_Indicator(void)
 {
-//    if (use_fir_filter) {
-//        HAL_GPIO_WritePin(GPIOD, LD5_Red_Pin, GPIO_PIN_SET);   // Turn on Red LED when FIR filter is active
-//        HAL_GPIO_WritePin(GPIOD, LD6_Blue_Pin, GPIO_PIN_RESET); // Turn off Blue LED
-//    } else {
-//        HAL_GPIO_WritePin(GPIOD, LD5_Red_Pin, GPIO_PIN_RESET); // Turn off Red LED
-//        HAL_GPIO_WritePin(GPIOD, LD6_Blue_Pin, GPIO_PIN_SET);  // Turn on Blue LED when no filter is active
-//    }
-	// Turn off all LEDs initially
 	HAL_GPIO_WritePin(GPIOD, LD4_Green_Pin|LD3_Orange_Pin|LD5_Red_Pin|LD6_Blue_Pin, GPIO_PIN_RESET);
 
 	// Set LED based on the active filter mode
 	if (filter_mode == 0) {
 		HAL_GPIO_WritePin(GPIOD, LD6_Blue_Pin, GPIO_PIN_SET);   // Blue LED for RAW mode
 	} else if (filter_mode == 1) {
-		HAL_GPIO_WritePin(GPIOD, LD4_Green_Pin, GPIO_PIN_SET);  // Green LED for FIR mode
+		HAL_GPIO_WritePin(GPIOD, LD5_Red_Pin, GPIO_PIN_SET);  // Green LED for FIR mode
 	} else if (filter_mode == 2) {
 		HAL_GPIO_WritePin(GPIOD, LD3_Orange_Pin, GPIO_PIN_SET); // Orange LED for IIR mode
 	}
@@ -154,15 +146,6 @@ void Update_LED_Indicator(void)
 
 void Poll_Button(void)
 {
-    // Poll the button state
-//    if (HAL_GPIO_ReadPin(GPIO_BUTTON_GPIO_Port, GPIO_BUTTON_Pin) == GPIO_PIN_RESET) {
-//        HAL_Delay(DEBOUNCE_DELAY); // Debounce delay
-//        if (HAL_GPIO_ReadPin(GPIO_BUTTON_GPIO_Port, GPIO_BUTTON_Pin) == GPIO_PIN_RESET) {
-//            use_fir_filter = !use_fir_filter; // Toggle the filter flag
-//            Update_LED_Indicator(); // Update LEDs based on filter selection
-//            while (HAL_GPIO_ReadPin(GPIO_BUTTON_GPIO_Port, GPIO_BUTTON_Pin) == GPIO_PIN_RESET); // Wait for button release
-//        }
-//    }
 	if (HAL_GPIO_ReadPin(GPIO_BUTTON_GPIO_Port, GPIO_BUTTON_Pin) == GPIO_PIN_RESET) {
 		HAL_Delay(DEBOUNCE_DELAY); // Debounce delay
 		if (HAL_GPIO_ReadPin(GPIO_BUTTON_GPIO_Port, GPIO_BUTTON_Pin) == GPIO_PIN_RESET) {
@@ -223,27 +206,6 @@ int main(void)
 	  // Example: You might want to add some other functionalities or delays
 	  HAL_Delay(10); // Small delay to avoid rapid polling
   }
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
-	  // ######## VRATI ####################
-//	  HAL_ADC_Start(&hadc1);
-//	  HAL_GPIO_WritePin(GPIOD, LD4_Green_Pin, GPIO_PIN_SET);
-//
-//	  if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
-//	  {
-//		  uint32_t adc_value = HAL_ADC_GetValue(&hadc1);
-//		  float voltage = 5.0f * adc_value / 4096.0f;
-//
-//		  sprintf(buffer, "%.3f\r\n", voltage);
-//		  UART_Transmit(&huart2, buffer);
-//
-//	  }
-//	  HAL_ADC_Stop(&hadc1);
-//	  HAL_GPIO_WritePin(GPIOD, LD4_Green_Pin, GPIO_PIN_RESET);
-//	  HAL_Delay(10); // Delay 1 second before sending the next value
-	  // ######## DO OVDJE ####################
-  /* USER CODE END 3 */
 }
 
 /**
@@ -456,41 +418,6 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
-/* USER CODE BEGIN 4 */
-// ############## TESTED ####################
-//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
-//{
-//	adc_val = HAL_ADC_GetValue(&hadc1);
-//	float voltage = ref_v * adc_val / adc_12b_max_val - dc_bias; // Convert ADC value to voltage
-//	float emg_signal_value = voltage * emg_scaling_factor; // Apply scaling factor to convert to original EMG range
-//    sprintf(buffer, "%.6f\r\n", emg_signal_value);
-//    UART_Transmit(&huart2, buffer);
-//	HAL_GPIO_TogglePin(GPIOD, LD4_Green_Pin);
-//}
-// ############## TESTED ####################
-//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
-//{
-//    // Get the ADC value
-//    adc_val = HAL_ADC_GetValue(&hadc1);
-//    float voltage = REF_VOLTAGE * adc_val / ADC_MAX_VAL - DC_BIAS;
-//
-//    // Process the voltage based on the filter selection
-//    if (use_fir_filter) {
-//        // Apply FIR filter if the flag is set
-////        emg_signal_value = FIR_Filter(voltage, fir_buffer, BUFFER_SIZE);
-//    	emg_signal_value = FIR_Filter(&cb, voltage);
-//    } else {
-//        // No filtering, just scale the voltage
-//        emg_signal_value = voltage * EMG_SIGNAL_MAX_VOLTAGE;
-//    }
-//
-//    // Send the processed signal value over UART
-//    sprintf(buffer, "%.6f\r\n", emg_signal_value);
-//    UART_Transmit(&huart2, buffer);
-//
-//    // Toggle the Green LED to indicate ADC activity
-//    HAL_GPIO_TogglePin(GPIOD, LD4_Green_Pin);
-//}
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
     // Get the ADC value
@@ -503,19 +430,10 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
     } else if (filter_mode == 1) {
     	// FIR filtering
     	emg_signal_value = FIR_Filter(&cb, voltage);
-    } else if (filter == 2) {
+    } else if (filter_mode == 2) {
     	// IIR filtering
-    	emg_signal_value = IIR_Filter()
+    	emg_signal_value = IIR_Filter(voltage, &emg_signal_value, ALPHA);
     }
-    // Process the voltage based on the filter selection
-//    if (use_fir_filter) {
-//        // Apply FIR filter if the flag is set
-////        emg_signal_value = FIR_Filter(voltage, fir_buffer, BUFFER_SIZE);
-//    	emg_signal_value = FIR_Filter(&cb, voltage);
-//    } else {
-//        // No filtering, just scale the voltage
-//        emg_signal_value = voltage * EMG_SIGNAL_MAX_VOLTAGE;
-//    }
 
     // Send the processed signal value over UART
     sprintf(buffer, "%.6f\r\n", emg_signal_value);
@@ -524,7 +442,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
     // Toggle the Green LED to indicate ADC activity
     HAL_GPIO_TogglePin(GPIOD, LD4_Green_Pin);
 }
-/* USER CODE END 4 */
 
 /**
   * @brief  This function is executed in case of error occurrence.

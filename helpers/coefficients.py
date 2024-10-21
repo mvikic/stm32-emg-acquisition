@@ -6,7 +6,7 @@ import serial
 import time
 
 # Sampling frequency
-fs = 1000  # Hz
+fs = 1500  # Hz
 
 # Band-stop filter parameters
 notch_freq = 50  # Frequency to be removed (Hz)
@@ -84,7 +84,7 @@ def apply_filter(signal, coefficients):
 # Convert coefficients to C array format
 def coefficients_to_c_array(coefficients, array_name):
     c_array = f"const float {array_name}[] = {{\n"
-    c_array += ", ".join(f"{coefficient:.6f}" for coefficient in coefficients)
+    c_array += ", ".join(f"{coefficient:.10f}" for coefficient in coefficients)
     c_array += "\n};\n"
     return c_array
 

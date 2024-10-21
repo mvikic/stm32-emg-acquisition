@@ -10,7 +10,7 @@
 #define ADC_MAX_VAL          4095.0f        // Maximum value for 12-bit ADC
 #define DC_BIAS              1.83f          // DC bias in volts (should see which is new, ideally 1.65)
 #define ALPHA                0.1f           // Smoothing factor for IIR filter
-#define FILTER_ORDER         41              // Example filter order
+#define FILTER_ORDER         61              // Example filter order
 #define BUFFER_SIZE          FILTER_ORDER    // Size of the buffer for FIR filter
 #define DEBOUNCE_DELAY       50              // Debounce delay in milliseconds
 
