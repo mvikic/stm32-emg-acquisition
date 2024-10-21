@@ -109,7 +109,7 @@ class SerialPlotter(QMainWindow):
             self.data.append(value)
 
             # Limit the data to the last 500 points for plotting
-            if len(self.data) > 1000:
+            if len(self.data) > 4000:
                 self.data.pop(0)
 
         if self.data:
@@ -117,8 +117,8 @@ class SerialPlotter(QMainWindow):
             self.plot_data_line.setData(range(len(self.data)), self.data)
 
             # Auto-scale the Y-axis based on the current data
-            min_y = min(self.data)
-            max_y = max(self.data)
+            min_y = -0.002  # min(self.data)
+            max_y = 0.002  # max(self.data)
             self.plot_widget.setYRange(min_y, max_y, padding=0.1)
 
             logging.debug(f"Plot updated with {len(self.data)} points.")
