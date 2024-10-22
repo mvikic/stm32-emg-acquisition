@@ -16,8 +16,8 @@ bandwidth = 2  # Bandwidth around the notch frequency (Hz)
 cutoff_freq = 500  # Cutoff frequency (Hz)
 
 # Filter orders
-num_taps_notch = 31  # Order of the notch filter
-num_taps_lowpass = 31  # Order of the low-pass filter
+num_taps_notch = 51  # Order of the notch filter
+num_taps_lowpass = 51  # Order of the low-pass filter
 
 
 # Function to record EMG data
@@ -83,7 +83,7 @@ def apply_filter(signal, coefficients):
 
 # Convert coefficients to C array format
 def coefficients_to_c_array(coefficients, array_name):
-    c_array = f"const float {array_name}[] = {{\n"
+    c_array = f"const float {array_name}[FILTER_ORDER] = {{\n"
     c_array += ", ".join(f"{coefficient:.10f}" for coefficient in coefficients)
     c_array += "\n};\n"
     return c_array

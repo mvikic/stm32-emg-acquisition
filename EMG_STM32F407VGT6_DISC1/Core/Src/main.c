@@ -18,18 +18,21 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <stdio.h>
-#include <string.h>
-#include "config.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include <string.h>
+#include "config.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+typedef struct {
+//    float buffer[FILTER_ORDER];
+	int32_t buffer[FILTER_ORDER];
+    int index;
+} CircularBuffer;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -43,50 +46,30 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
-
 TIM_HandleTypeDef htim2;
-
 UART_HandleTypeDef huart2;
-
-/* USER CODE BEGIN PV */
+CircularBuffer cb;
 uint16_t adc_val;
-//uint8_t use_fir_filter = 0; // Flag to toggle between filters
 uint8_t filter_mode = 2;  // 0: RAW, 1: FIR, 2: IIR
 float emg_signal_value;
 float iir_prev_output = 0.0f;
 float fir_buffer[BUFFER_SIZE] = {0};
-char buffer[50];
-
-//const float fir_coefficients[] = {
-//-0.000000, -0.000000, -0.000001, -0.000001, -0.000001, -0.000001, -0.000002, -0.000002, -0.000002, -0.000002, -0.000003, -0.000003, -0.000003, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000003, -0.000002, -0.000001, 0.000000, 0.000001, 0.000003, 0.000005, 0.000007, 0.000009, 0.000012, 0.000014, 0.000017, 0.000020, 0.000024, 0.000027, 0.000030, 0.000034, 0.000038, 0.000042, 0.000045, 0.000049, 0.000053, 0.000057, 0.000060, 0.000064, 0.000067, 0.000070, 0.000073, 0.001555, 0.001574, 0.001626, 0.001712, 0.001830, 0.001980, 0.002161, 0.002373, 0.002616, 0.002887, 0.003186, 0.003511, 0.003862, 0.004237, 0.004634, 0.005053, 0.005490, 0.005945, 0.006415, 0.006900, 0.007396, 0.007902, 0.008416, 0.008936, 0.009460, 0.009986, 0.010512, 0.011035, 0.011554, 0.012067, 0.012571, 0.013065, 0.013546, 0.014014, 0.014465, 0.014899, 0.015313, 0.015707, 0.016077, 0.016424, 0.016745, 0.017040, 0.017307, 0.017545, 0.017753, 0.017930, 0.018076, 0.018191, 0.018273, 0.018322, 0.018338, 0.018322, 0.018273, 0.018191, 0.018076, 0.017930, 0.017753, 0.017545, 0.017307, 0.017040, 0.016745, 0.016424, 0.016077, 0.015707, 0.015313, 0.014899, 0.014465, 0.014014, 0.013546, 0.013065, 0.012571, 0.012067, 0.011554, 0.011035, 0.010512, 0.009986, 0.009460, 0.008936, 0.008416, 0.007902, 0.007396, 0.006900, 0.006415, 0.005945, 0.005490, 0.005053, 0.004634, 0.004237, 0.003862, 0.003511, 0.003186, 0.002887, 0.002616, 0.002373, 0.002161, 0.001980, 0.001830, 0.001712, 0.001626, 0.001574, 0.001555, 0.000073, 0.000070, 0.000067, 0.000064, 0.000060, 0.000057, 0.000053, 0.000049, 0.000045, 0.000042, 0.000038, 0.000034, 0.000030, 0.000027, 0.000024, 0.000020, 0.000017, 0.000014, 0.000012, 0.000009, 0.000007, 0.000005, 0.000003, 0.000001, 0.000000, -0.000001, -0.000002, -0.000003, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000004, -0.000003, -0.000003, -0.000003, -0.000002, -0.000002, -0.000002, -0.000002, -0.000001, -0.000001, -0.000001, -0.000001, -0.000000, -0.000000
-//};
-//const float fir_coefficients[FILTER_ORDER] = {
-//	0.000002, 0.000006, 0.000013, 0.000024, 0.000040, 0.000059, 0.000078, 0.000090, 0.000088, 0.000062, 0.007484,
-//	0.009486, 0.015446, 0.024768, 0.036530, 0.049571, 0.062610, 0.074371, 0.083702, 0.089692, 0.091757, 0.089692,
-//	0.083702, 0.074371, 0.062610, 0.049571, 0.036530, 0.024768, 0.015446, 0.009486, 0.007484, 0.000062, 0.000088,
-//	0.000090, 0.000078, 0.000059, 0.000040, 0.000024, 0.000013, 0.000006, 0.000002
-//};
+char buffer[128];
 const float fir_coefficients[FILTER_ORDER] = {
-0.000000, 0.000001, 0.000002, 0.000005, 0.000011, 0.000020, 0.000033, 0.000051, 0.000073, 0.000100,
-0.000130, 0.000162, 0.000192, 0.000218, 0.000236, 0.005187, 0.005801, 0.007612, 0.010539, 0.014451,
-0.019175, 0.024503, 0.030201, 0.036021, 0.041709, 0.047016, 0.051714, 0.055598, 0.058499, 0.060292,
-0.060898, 0.060292, 0.058499, 0.055598, 0.051714, 0.047016, 0.041709, 0.036021, 0.030201, 0.024503,
-0.019175, 0.014451, 0.010539, 0.007612, 0.005801, 0.005187, 0.000236, 0.000218, 0.000192, 0.000162,
-0.000130, 0.000100, 0.000073, 0.000051, 0.000033, 0.000020, 0.000011, 0.000005, 0.000002, 0.000001,
-0.000000
+	0.000000, 0.000001, 0.000002, 0.000005, 0.000011, 0.000020, 0.000033, 0.000051, 0.000073, 0.000100,
+	0.000130, 0.000162, 0.000192, 0.000218, 0.000236, 0.005187, 0.005801, 0.007612, 0.010539, 0.014451,
+	0.019175, 0.024503, 0.030201, 0.036021, 0.041709, 0.047016, 0.051714, 0.055598, 0.058499, 0.060292,
+	0.060898, 0.060292, 0.058499, 0.055598, 0.051714, 0.047016, 0.041709, 0.036021, 0.030201, 0.024503,
+	0.019175, 0.014451, 0.010539, 0.007612, 0.005801, 0.005187, 0.000236, 0.000218, 0.000192, 0.000162,
+	0.000130, 0.000100, 0.000073, 0.000051, 0.000033, 0.000020, 0.000011, 0.000005, 0.000002, 0.000001,
+	0.000000
 };
-
-typedef struct {
-    float buffer[FILTER_ORDER];
-    int index;
-} CircularBuffer;
-
-CircularBuffer cb;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
@@ -117,15 +100,15 @@ float FIR_Filter(CircularBuffer* cb, float input) {
 
     // Update buffer with new input
     cb->buffer[cb->index] = input;
-    cb->index = (cb->index + 1) % FILTER_ORDER;
 
-    // Compute the FIR filter output
+    int idx = cb->index;
     for (int i = 0; i < FILTER_ORDER; i++) {
-        int idx = (cb->index + i) % FILTER_ORDER; // Circular indexing
         sum += cb->buffer[idx] * fir_coefficients[i];
+        idx = (idx == 0) ? (FILTER_ORDER - 1) : (idx - 1);
     }
 
-    // Scale the result to millivolts (mV) if needed
+    cb->index = (cb->index + 1) % FILTER_ORDER;
+
     return sum * EMG_SIGNAL_MAX_VOLTAGE;
 }
 
@@ -326,7 +309,7 @@ static void MX_TIM2_Init(void)
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
 //  htim2.Init.Period = 33600;
-  htim2.Init.Period = 84000;
+  htim2.Init.Period = 56000;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
@@ -366,7 +349,7 @@ static void MX_USART2_UART_Init(void)
   /* USER CODE BEGIN USART2_Init 1 */
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 460800;
+  huart2.Init.BaudRate = 115200;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -421,7 +404,7 @@ static void MX_GPIO_Init(void)
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
     // Get the ADC value
-    adc_val = HAL_ADC_GetValue(&hadc1);
+	uint16_t adc_val = HAL_ADC_GetValue(&hadc1);
     float voltage = REF_VOLTAGE * adc_val / ADC_MAX_VAL - DC_BIAS;
 
     if (filter_mode == 0) {
@@ -436,7 +419,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
     }
 
     // Send the processed signal value over UART
-    sprintf(buffer, "%.6f\r\n", emg_signal_value);
+   //  sprintf(buffer, "%.6f\r\n", emg_signal_value);
+    snprintf(buffer, sizeof(buffer), "%.6f\r\n", emg_signal_value);
     UART_Transmit(&huart2, buffer);
 
     // Toggle the Green LED to indicate ADC activity

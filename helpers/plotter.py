@@ -157,7 +157,7 @@ def main():
     app = QApplication(sys.argv)
 
     # Create the SerialReader and SerialPlotter
-    reader = SerialReader(port='COM7', baudrate=460800)
+    reader = SerialReader(port='COM7', baudrate=115200)
     window = SerialPlotter(reader)
     window.show()
 
