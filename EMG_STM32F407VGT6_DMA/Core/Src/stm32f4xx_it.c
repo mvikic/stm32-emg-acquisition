@@ -58,6 +58,7 @@
 extern DMA_HandleTypeDef hdma_adc1;
 extern DMA_HandleTypeDef hdma_dac1;
 extern DMA_HandleTypeDef hdma_usart2_tx;
+extern UART_HandleTypeDef huart2;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -243,5 +244,8 @@ void DMA2_Stream0_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
-
+void USART2_IRQHandler(void) {
+    // Call HAL UART IRQ handler to manage UART events
+    HAL_UART_IRQHandler(&huart2);
+}
 /* USER CODE END 1 */

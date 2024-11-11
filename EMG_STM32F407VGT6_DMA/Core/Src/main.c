@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "arm_math.h"
 #include <stdio.h>
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -34,7 +35,7 @@
 #define N 32
 #define halfN 16
 #define NUM_TAPS 32
-#define BUFFER_SIZE 32  // Adjust this size as necessary
+#define BUFFER_SIZE 128  // Adjust this size as necessary
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -67,6 +68,7 @@ float32_t filt_in[N];
 float32_t filt_out[N];
 float32_t *filt_in_ptr = &filt_in[0];
 float32_t *filt_out_ptr = &filt_out[0];
+volatile bool transmissionInProgress = false;
 
 arm_fir_instance_f32 filter1;
 CircularBuffer uartTxBuffer;
@@ -349,7 +351,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 460800;
+  huart2.Init.BaudRate = 115200;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -361,7 +363,8 @@ static void MX_USART2_UART_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN USART2_Init 2 */
-
+  HAL_NVIC_SetPriority(USART2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(USART2_IRQn);
   /* USER CODE END USART2_Init 2 */
 
 }
@@ -437,16 +440,15 @@ void EnqueueToUartBuffer(uint8_t* data, size_t size) {
         uartTxBuffer.head = (uartTxBuffer.head + 1) % BUFFER_SIZE;
     }
 
-    // If the transmission is not already ongoing, start the transmission
-    if (uartTxBuffer.tail == uartTxBuffer.head) {
-        // Start DMA transmission
-        uartTxBuffer.tail = (uartTxBuffer.tail + 1) % BUFFER_SIZE; // Move tail to point to the first byte
-        HAL_UART_Transmit_DMA(&huart2, &uartTxBuffer.buffer[uartTxBuffer.tail], 1);
-    }
+    // Start transmission if not already ongoing
+	if (!transmissionInProgress) {
+		transmissionInProgress = true;
+		HAL_UART_Transmit_DMA(&huart2, &uartTxBuffer.buffer[uartTxBuffer.tail], 1);
+	}
 }
 
 void SendDACData(uint32_t* data, size_t size) {
-    char buffer[32];
+    char buffer[128];
     for (size_t i = 0; i < size; i++) {
         int len = snprintf(buffer, sizeof(buffer), "DAC[%d]: %lu\r\n", i, data[i]);
         EnqueueToUartBuffer((uint8_t*)buffer, len);
@@ -460,18 +462,22 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
             uartTxBuffer.tail = (uartTxBuffer.tail + 1) % BUFFER_SIZE;
             HAL_UART_Transmit_DMA(&huart2, &uartTxBuffer.buffer[uartTxBuffer.tail], 1);
         } else {
+        	transmissionInProgress = false; // Transmission completed
         	// Blink blue LED when transmission is complete
-        	BlinkLED(GPIOD, LD6_Blue_Pin, 100, 1); // Adjust GPIO port and pin number accordingly
+        	BlinkLED(GPIOD, LD6_Blue_Pin, 1000, 1); // Adjust GPIO port and pin number accordingly
         }
     }
 }
 
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
-	for( int n=0; n<halfN; n++){ filt_in[n] = (float32_t) adc_buffer[n];}
+	for (int n=0; n<halfN; n++){
+		filt_in[n] = (float32_t) adc_buffer[n];
+	}
 	arm_fir_f32(&filter1, filt_in_ptr, filt_out_ptr, halfN);
 //	arm_fir_f32(&filter1, filt_in, filt_out, halfN);
-	for( int n=0; n<halfN; n++){ dac_buffer[n] = (uint32_t) filt_out[n];}
-
+	for (int n=0; n<halfN; n++){
+		dac_buffer[n] = (uint32_t) filt_out[n];
+	}
 	// Transmit DAC data via UART
 	SendDACData(dac_buffer, halfN);
 

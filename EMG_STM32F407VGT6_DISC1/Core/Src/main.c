@@ -48,6 +48,8 @@ typedef struct {
 ADC_HandleTypeDef hadc1;
 TIM_HandleTypeDef htim2;
 UART_HandleTypeDef huart2;
+
+/* USER CODE BEGIN PV */
 CircularBuffer cb;
 uint16_t adc_val;
 uint8_t filter_mode = 2;  // 0: RAW, 1: FIR, 2: IIR
@@ -69,13 +71,12 @@ const float fir_coefficients[FILTER_ORDER] = {
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
-
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -139,6 +140,32 @@ void Poll_Button(void)
 	}
 }
 
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
+{
+    // Get the ADC value
+	uint16_t adc_val = HAL_ADC_GetValue(&hadc1);
+    float voltage = REF_VOLTAGE * adc_val / ADC_MAX_VAL - DC_BIAS;
+
+    if (filter_mode == 0) {
+    	// RAW signal, no filtering just voltage scaling
+    	emg_signal_value = voltage * EMG_SIGNAL_MAX_VOLTAGE;
+    } else if (filter_mode == 1) {
+    	// FIR filtering
+    	emg_signal_value = FIR_Filter(&cb, voltage);
+    } else if (filter_mode == 2) {
+    	// IIR filtering
+    	emg_signal_value = IIR_Filter(voltage, &emg_signal_value, ALPHA);
+    }
+
+    // Send the processed signal value over UART
+   //  sprintf(buffer, "%.6f\r\n", emg_signal_value);
+    snprintf(buffer, sizeof(buffer), "%.6f\r\n", emg_signal_value);
+    UART_Transmit(&huart2, buffer);
+
+    // Toggle the Green LED to indicate ADC activity
+    HAL_GPIO_TogglePin(GPIOD, LD4_Green_Pin);
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -189,6 +216,10 @@ int main(void)
 	  // Example: You might want to add some other functionalities or delays
 	  HAL_Delay(10); // Small delay to avoid rapid polling
   }
+  /* USER CODE END WHILE */
+
+  /* USER CODE BEGIN 3 */
+  /* USER CODE END 3 */
 }
 
 /**
@@ -214,7 +245,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 84;
+  RCC_OscInitStruct.PLL.PLLN = 168;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 4;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
@@ -228,10 +259,10 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
   {
     Error_Handler();
   }
@@ -308,7 +339,6 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-//  htim2.Init.Period = 33600;
   htim2.Init.Period = 56000;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -401,31 +431,9 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
-{
-    // Get the ADC value
-	uint16_t adc_val = HAL_ADC_GetValue(&hadc1);
-    float voltage = REF_VOLTAGE * adc_val / ADC_MAX_VAL - DC_BIAS;
+/* USER CODE BEGIN 4 */
 
-    if (filter_mode == 0) {
-    	// RAW signal, no filtering just voltage scaling
-    	emg_signal_value = voltage * EMG_SIGNAL_MAX_VOLTAGE;
-    } else if (filter_mode == 1) {
-    	// FIR filtering
-    	emg_signal_value = FIR_Filter(&cb, voltage);
-    } else if (filter_mode == 2) {
-    	// IIR filtering
-    	emg_signal_value = IIR_Filter(voltage, &emg_signal_value, ALPHA);
-    }
-
-    // Send the processed signal value over UART
-   //  sprintf(buffer, "%.6f\r\n", emg_signal_value);
-    snprintf(buffer, sizeof(buffer), "%.6f\r\n", emg_signal_value);
-    UART_Transmit(&huart2, buffer);
-
-    // Toggle the Green LED to indicate ADC activity
-    HAL_GPIO_TogglePin(GPIOD, LD4_Green_Pin);
-}
+/* USER CODE END 4 */
 
 /**
   * @brief  This function is executed in case of error occurrence.
