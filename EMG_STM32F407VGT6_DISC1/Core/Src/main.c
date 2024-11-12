@@ -33,6 +33,13 @@ typedef struct {
 	int32_t buffer[FILTER_ORDER];
     int index;
 } CircularBuffer;
+
+typedef struct {
+    float x[N_B];  // Input buffer for the filter (last N_B inputs)
+    float y[N_A];  // Output buffer for the filter (last N_A outputs)
+    float b[N_B];  // Feedforward (numerator) coefficients
+    float a[N_A];  // Feedback (denominator) coefficients
+} IIRFilter;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -51,13 +58,18 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 CircularBuffer cb;
+IIRFilter iir_filter;
 uint16_t adc_val;
 uint8_t filter_mode = 2;  // 0: RAW, 1: FIR, 2: IIR
 float emg_signal_value;
-float iir_prev_output = 0.0f;
-float fir_buffer[BUFFER_SIZE] = {0};
+//float fir_buffer[BUFFER_SIZE] = {0};
 char buffer[128];
-const float fir_coefficients[FILTER_ORDER] = {
+// IIR coefficient
+// Example coefficients for a simple IIR filter (e.g., a low-pass filter)
+float b[] = {0.2929, 0.5858, 0.2929};  // Feedforward (numerator) coefficients
+float a[] = {1.0000, -0.0000, 0.1716}; // Feedback (denominator) coefficients
+// FIR coefficients
+float fir_coefficients[FILTER_ORDER] = {
 	0.000000, 0.000001, 0.000002, 0.000005, 0.000011, 0.000020, 0.000033, 0.000051, 0.000073, 0.000100,
 	0.000130, 0.000162, 0.000192, 0.000218, 0.000236, 0.005187, 0.005801, 0.007612, 0.010539, 0.014451,
 	0.019175, 0.024503, 0.030201, 0.036021, 0.041709, 0.047016, 0.051714, 0.055598, 0.058499, 0.060292,
@@ -81,20 +93,61 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void UART_Transmit(UART_HandleTypeDef *huart, char *data) {
-	HAL_UART_Transmit(huart, (uint8_t*) data, strlen(data), HAL_MAX_DELAY);
-}
-
-// Example IIR filter (Single-pole low-pass filter)
-float IIR_Filter(float input, float *prev_output, float alpha) {
-    *prev_output = alpha * input + (1.0f - alpha) * (*prev_output);
-    return *prev_output;
+// Function to initialize the IIR filter
+void IIRFilter_Init(IIRFilter *filter, float b[], float a[]) {
+    for (int i = 0; i < N_B; i++) {
+        filter->b[i] = b[i];
+        filter->x[i] = 0.0f;  // Initialize input buffer to 0
+    }
+    for (int i = 0; i < N_A; i++) {
+        filter->a[i] = a[i];
+        filter->y[i] = 0.0f;  // Initialize output buffer to 0
+    }
 }
 
 void CircularBuffer_Init(CircularBuffer* cb) {
     memset(cb->buffer, 0, sizeof(cb->buffer));
     cb->index = 0;
 }
+
+// Function to apply the IIR filter to a new input sample
+float IIR_Filter(IIRFilter *filter, float input) {
+    // Shift the input buffer to make room for the new sample
+    for (int i = N_B - 1; i > 0; i--) {
+        filter->x[i] = filter->x[i - 1];
+    }
+    filter->x[0] = input;  // Store the new input sample at the beginning of the buffer
+
+    // Calculate the output sample using the IIR difference equation
+    float output = 0.0f;
+
+    // Feedforward part (b[] coefficients)
+    for (int i = 0; i < N_B; i++) {
+        output += filter->b[i] * filter->x[i];
+    }
+
+    // Feedback part (a[] coefficients)
+    for (int i = 1; i < N_A; i++) {
+        output -= filter->a[i] * filter->y[i];
+    }
+
+    // Normalize by the first coefficient of 'a' (if not zero)
+    if (filter->a[0] != 0.0f) {
+        output /= filter->a[0];
+    }
+
+    // Shift the output buffer to make room for the new output sample
+    for (int i = N_A - 1; i > 0; i--) {
+        filter->y[i] = filter->y[i - 1];
+    }
+    filter->y[0] = output;  // Store the new output sample at the beginning of the buffer
+
+    return output * EMG_SIGNAL_MAX_VOLTAGE;
+}
+
+//void UART_Transmit(UART_HandleTypeDef *huart, char *data) {
+//	HAL_UART_Transmit(huart, (uint8_t*) data, strlen(data), HAL_MAX_DELAY);
+//}
 
 float FIR_Filter(CircularBuffer* cb, float input) {
     float sum = 0.0f;
@@ -154,13 +207,15 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
     	emg_signal_value = FIR_Filter(&cb, voltage);
     } else if (filter_mode == 2) {
     	// IIR filtering
-    	emg_signal_value = IIR_Filter(voltage, &emg_signal_value, ALPHA);
+//    	emg_signal_value = IIR_Filter(voltage, &emg_signal_value, ALPHA);
+    	emg_signal_value = IIR_Filter(&iir_filter, voltage);
     }
 
     // Send the processed signal value over UART
    //  sprintf(buffer, "%.6f\r\n", emg_signal_value);
     snprintf(buffer, sizeof(buffer), "%.6f\r\n", emg_signal_value);
-    UART_Transmit(&huart2, buffer);
+    HAL_UART_Transmit(&huart2, (uint8_t*) buffer, strlen(buffer), HAL_MAX_DELAY);
+//    UART_Transmit(&huart2, buffer);
 
     // Toggle the Green LED to indicate ADC activity
     HAL_GPIO_TogglePin(GPIOD, LD4_Green_Pin);
@@ -177,6 +232,7 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
   CircularBuffer_Init(&cb);
+  IIRFilter_Init(&iir_filter, b, a);
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/

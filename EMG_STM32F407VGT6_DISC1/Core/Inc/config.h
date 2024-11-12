@@ -16,7 +16,8 @@
 #define DC_BIAS              1.83f          // DC bias in volts (adjust based on your setup)
 
 // IIR Filter Configuration
-#define ALPHA                0.1f           // Smoothing factor for IIR filter (0 < ALPHA < 1)
+#define N_B 3  // Number of feedforward (numerator) coefficients (b[])
+#define N_A 3  // Number of feedback (denominator) coefficients (a[])
 
 // FIR Filter Configuration
 #define FILTER_ORDER         61             // Example filter order for FIR filter
