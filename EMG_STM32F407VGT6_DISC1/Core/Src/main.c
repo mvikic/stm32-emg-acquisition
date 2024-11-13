@@ -62,14 +62,12 @@ IIRFilter iir_filter;
 uint16_t adc_val;
 uint8_t filter_mode = 2;  // 0: RAW, 1: FIR, 2: IIR
 float emg_signal_value;
-//float fir_buffer[BUFFER_SIZE] = {0};
 char buffer[BUFFER_SIZE];
-// IIR coefficient
-// Example coefficients for a simple IIR filter (e.g., a low-pass filter)
+
+// IIR coefficients
 float b[N_B] = {0.2338830860f, 0.4779879852f, -0.1929958334f, -0.8742014651f, -0.1929958334f, 0.4779879852f, 0.2338830860f};
 float a[N_A] = {1.0000000000f, -0.6428850253f, -0.5237171088f, -0.3489755644f, 0.3726139159f, 0.2511368452f, 0.0553759478f};
-//float b[N_B] = {0.0139033705f, 0.1396413486f, 0.6051366578f, 1.4304415502f, 1.8159895066f, 0.6066579325f, -1.8128020739f, -3.1090267408f, -1.8128020739f, 0.6066579325f, 1.8159895066f, 1.4304415502f, 0.6051366578f, 0.1396413486f, 0.0139033705f};
-//float a[N_A] = {1.0000000000f, 2.0384119300f, 1.7743095895f, -0.5958475345f, -2.7295840973f, -2.6420195662f, -0.6831128830f, 1.0817338004f, 1.5339689148f, 1.0603082865f, 0.4743378508f, 0.1438496652f, 0.0288716760f, 0.0034889087f, 0.0001933032f};
+
 // FIR coefficients
 float fir_coefficients[FILTER_ORDER] = {
 	0.000000, 0.000001, 0.000002, 0.000005, 0.000011, 0.000020, 0.000033, 0.000051, 0.000073, 0.000100,
@@ -144,12 +142,8 @@ float IIR_Filter(IIRFilter *filter, float input) {
     }
     filter->y[0] = output;  // Store the new output sample at the beginning of the buffer
 
-    return output * EMG_SIGNAL_MAX_VOLTAGE;
+    return output * EMG_MAX_VOLTAGE;
 }
-
-//void UART_Transmit(UART_HandleTypeDef *huart, char *data) {
-//	HAL_UART_Transmit(huart, (uint8_t*) data, strlen(data), HAL_MAX_DELAY);
-//}
 
 float FIR_Filter(CircularBuffer* cb, float input) {
     float sum = 0.0f;
@@ -165,7 +159,7 @@ float FIR_Filter(CircularBuffer* cb, float input) {
 
     cb->index = (cb->index + 1) % FILTER_ORDER;
 
-    return sum * EMG_SIGNAL_MAX_VOLTAGE;
+    return sum * EMG_MAX_VOLTAGE;
 }
 
 /* Function to Update LED Indicator */
@@ -203,21 +197,18 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 
     if (filter_mode == 0) {
     	// RAW signal, no filtering just voltage scaling
-    	emg_signal_value = voltage * EMG_SIGNAL_MAX_VOLTAGE;
+    	emg_signal_value = voltage * EMG_MAX_VOLTAGE;
     } else if (filter_mode == 1) {
     	// FIR filtering
     	emg_signal_value = FIR_Filter(&cb, voltage);
     } else if (filter_mode == 2) {
     	// IIR filtering
-//    	emg_signal_value = IIR_Filter(voltage, &emg_signal_value, ALPHA);
     	emg_signal_value = IIR_Filter(&iir_filter, voltage);
     }
 
     // Send the processed signal value over UART
-   //  sprintf(buffer, "%.6f\r\n", emg_signal_value);
     snprintf(buffer, sizeof(buffer), "%.6f\r\n", emg_signal_value);
     HAL_UART_Transmit(&huart2, (uint8_t*) buffer, strlen(buffer), HAL_MAX_DELAY);
-//    UART_Transmit(&huart2, buffer);
 
     // Toggle the Green LED to indicate ADC activity
     HAL_GPIO_TogglePin(GPIOD, LD4_Green_Pin);
@@ -335,13 +326,11 @@ static void MX_ADC1_Init(void)
 {
 
   /* USER CODE BEGIN ADC1_Init 0 */
-
   /* USER CODE END ADC1_Init 0 */
 
   ADC_ChannelConfTypeDef sConfig = {0};
 
   /* USER CODE BEGIN ADC1_Init 1 */
-
   /* USER CODE END ADC1_Init 1 */
 
   /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
@@ -373,7 +362,6 @@ static void MX_ADC1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN ADC1_Init 2 */
-
   /* USER CODE END ADC1_Init 2 */
 
 }
@@ -491,7 +479,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
 /* USER CODE END 4 */
 
 /**

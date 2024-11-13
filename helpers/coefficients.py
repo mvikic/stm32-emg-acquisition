@@ -117,7 +117,7 @@ if __name__ == "__main__":
         print("Using stored EMG data...")
 
     # Read EMG data from file
-    emg_data = read_emg_data_from_file()
+    emg_data = read_emg_data_from_file(filename="emg_data_15s.txt")
     if emg_data is None or len(emg_data) == 0:
         print("No valid data read from the file.")
     else:
