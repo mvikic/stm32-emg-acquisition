@@ -119,6 +119,8 @@ class SerialPlotter(QMainWindow):
             # Auto-scale the Y-axis based on the current data
             min_y = -0.002  # min(self.data)
             max_y = 0.002  # max(self.data)
+            # min_y = min(self.data)
+            # max_y = max(self.data)
             self.plot_widget.setYRange(min_y, max_y, padding=0.1)
 
             logging.debug(f"Plot updated with {len(self.data)} points.")
@@ -157,7 +159,8 @@ def main():
     app = QApplication(sys.argv)
 
     # Create the SerialReader and SerialPlotter
-    reader = SerialReader(port='COM7', baudrate=115200)
+    # reader = SerialReader(port='COM7', baudrate=115200)
+    reader = SerialReader(port='COM7', baudrate=460800)
     window = SerialPlotter(reader)
     window.show()
 

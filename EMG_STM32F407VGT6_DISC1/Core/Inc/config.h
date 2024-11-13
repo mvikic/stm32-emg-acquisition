@@ -16,8 +16,8 @@
 #define DC_BIAS              1.83f          // DC bias in volts (adjust based on your setup)
 
 // IIR Filter Configuration
-#define N_B 3  // Number of feedforward (numerator) coefficients (b[])
-#define N_A 3  // Number of feedback (denominator) coefficients (a[])
+#define N_B 7  // Number of feedforward (numerator) coefficients (b[])
+#define N_A 7  // Number of feedback (denominator) coefficients (a[])
 
 // FIR Filter Configuration
 #define FILTER_ORDER         61             // Example filter order for FIR filter

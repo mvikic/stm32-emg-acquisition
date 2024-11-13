@@ -63,11 +63,13 @@ uint16_t adc_val;
 uint8_t filter_mode = 2;  // 0: RAW, 1: FIR, 2: IIR
 float emg_signal_value;
 //float fir_buffer[BUFFER_SIZE] = {0};
-char buffer[128];
+char buffer[BUFFER_SIZE];
 // IIR coefficient
 // Example coefficients for a simple IIR filter (e.g., a low-pass filter)
-float b[] = {0.2929, 0.5858, 0.2929};  // Feedforward (numerator) coefficients
-float a[] = {1.0000, -0.0000, 0.1716}; // Feedback (denominator) coefficients
+float b[N_B] = {0.2338830860f, 0.4779879852f, -0.1929958334f, -0.8742014651f, -0.1929958334f, 0.4779879852f, 0.2338830860f};
+float a[N_A] = {1.0000000000f, -0.6428850253f, -0.5237171088f, -0.3489755644f, 0.3726139159f, 0.2511368452f, 0.0553759478f};
+//float b[N_B] = {0.0139033705f, 0.1396413486f, 0.6051366578f, 1.4304415502f, 1.8159895066f, 0.6066579325f, -1.8128020739f, -3.1090267408f, -1.8128020739f, 0.6066579325f, 1.8159895066f, 1.4304415502f, 0.6051366578f, 0.1396413486f, 0.0139033705f};
+//float a[N_A] = {1.0000000000f, 2.0384119300f, 1.7743095895f, -0.5958475345f, -2.7295840973f, -2.6420195662f, -0.6831128830f, 1.0817338004f, 1.5339689148f, 1.0603082865f, 0.4743378508f, 0.1438496652f, 0.0288716760f, 0.0034889087f, 0.0001933032f};
 // FIR coefficients
 float fir_coefficients[FILTER_ORDER] = {
 	0.000000, 0.000001, 0.000002, 0.000005, 0.000011, 0.000020, 0.000033, 0.000051, 0.000073, 0.000100,
@@ -435,7 +437,8 @@ static void MX_USART2_UART_Init(void)
   /* USER CODE BEGIN USART2_Init 1 */
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
+//  huart2.Init.BaudRate = 115200;
+  huart2.Init.BaudRate = 460800;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;

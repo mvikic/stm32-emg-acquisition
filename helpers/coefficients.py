@@ -16,8 +16,8 @@ bandwidth = 2  # Bandwidth around the notch frequency (Hz)
 cutoff_freq = 500  # Cutoff frequency (Hz)
 
 # Filter orders
-num_taps_notch = 51  # Order of the notch filter
-num_taps_lowpass = 51  # Order of the low-pass filter
+num_taps_notch = 31  # Order of the notch filter
+num_taps_lowpass = 31  # Order of the low-pass filter
 
 
 # Function to record EMG data
