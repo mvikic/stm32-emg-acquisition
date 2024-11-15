@@ -29,8 +29,8 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 typedef struct {
-//    float buffer[FILTER_ORDER];
-	int32_t buffer[FILTER_ORDER];
+    float buffer[FILTER_ORDER];
+//	int32_t buffer[FILTER_ORDER];
     int index;
 } CircularBuffer;
 
@@ -40,6 +40,7 @@ typedef struct {
     float b[N_B];  // Feedforward (numerator) coefficients
     float a[N_A];  // Feedback (denominator) coefficients
 } IIRFilter;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -62,14 +63,16 @@ IIRFilter iir_filter;
 uint16_t adc_val;
 uint8_t filter_mode = 2;  // 0: RAW, 1: FIR, 2: IIR
 float emg_signal_value;
-char buffer[BUFFER_SIZE];
+char tx_buffer[BUFFER_SIZE];
 
 // IIR coefficients
-float b[N_B] = {0.2338830860f, 0.4779879852f, -0.1929958334f, -0.8742014651f, -0.1929958334f, 0.4779879852f, 0.2338830860f};
-float a[N_A] = {1.0000000000f, -0.6428850253f, -0.5237171088f, -0.3489755644f, 0.3726139159f, 0.2511368452f, 0.0553759478f};
+//float b[N_B] = {0.2338830860f, 0.4779879852f, -0.1929958334f, -0.8742014651f, -0.1929958334f, 0.4779879852f, 0.2338830860f};  // Original
+//float a[N_A] = {1.0000000000f, -0.6428850253f, -0.5237171088f, -0.3489755644f, 0.3726139159f, 0.2511368452f, 0.0553759478f};  // Original
+const float b[N_B] = {0.1651762524f, 0.5027477522f, 0.2012712266f, -0.7536913139f, -0.7536913139f, 0.2012712266f, 0.5027477522f, 0.1651762524f};
+const float a[N_A] = {1.0000000000f, -0.3085240488f, -0.6293757301f, -0.6544344191f, 0.2395897197f, 0.3805531697f, 0.1760282862f, 0.0271708570f};
 
 // FIR coefficients
-float fir_coefficients[FILTER_ORDER] = {
+const float fir_coefficients[FILTER_ORDER] = {
 	0.000000, 0.000001, 0.000002, 0.000005, 0.000011, 0.000020, 0.000033, 0.000051, 0.000073, 0.000100,
 	0.000130, 0.000162, 0.000192, 0.000218, 0.000236, 0.005187, 0.005801, 0.007612, 0.010539, 0.014451,
 	0.019175, 0.024503, 0.030201, 0.036021, 0.041709, 0.047016, 0.051714, 0.055598, 0.058499, 0.060292,
@@ -78,6 +81,7 @@ float fir_coefficients[FILTER_ORDER] = {
 	0.000130, 0.000100, 0.000073, 0.000051, 0.000033, 0.000020, 0.000011, 0.000005, 0.000002, 0.000001,
 	0.000000
 };
+
 
 /* USER CODE END PV */
 
@@ -93,8 +97,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-// Function to initialize the IIR filter
-void IIRFilter_Init(IIRFilter *filter, float b[], float a[]) {
+
+void IIRFilter_Init(IIRFilter *filter, const float b[], const float a[]) {
     for (int i = 0; i < N_B; i++) {
         filter->b[i] = b[i];
         filter->x[i] = 0.0f;  // Initialize input buffer to 0
@@ -106,11 +110,10 @@ void IIRFilter_Init(IIRFilter *filter, float b[], float a[]) {
 }
 
 void CircularBuffer_Init(CircularBuffer* cb) {
-    memset(cb->buffer, 0, sizeof(cb->buffer));
-    cb->index = 0;
+    memset(cb->buffer, 0.0f, sizeof(cb->buffer));
+    cb->index = 0.0f;
 }
 
-// Function to apply the IIR filter to a new input sample
 float IIR_Filter(IIRFilter *filter, float input) {
     // Shift the input buffer to make room for the new sample
     for (int i = N_B - 1; i > 0; i--) {
@@ -162,7 +165,6 @@ float FIR_Filter(CircularBuffer* cb, float input) {
     return sum * EMG_MAX_VOLTAGE;
 }
 
-/* Function to Update LED Indicator */
 void Update_LED_Indicator(void)
 {
 	HAL_GPIO_WritePin(GPIOD, LD4_Green_Pin|LD3_Orange_Pin|LD5_Red_Pin|LD6_Blue_Pin, GPIO_PIN_RESET);
@@ -207,8 +209,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
     }
 
     // Send the processed signal value over UART
-    snprintf(buffer, sizeof(buffer), "%.6f\r\n", emg_signal_value);
-    HAL_UART_Transmit(&huart2, (uint8_t*) buffer, strlen(buffer), HAL_MAX_DELAY);
+    snprintf(tx_buffer, sizeof(tx_buffer), "%.6f\r\n", emg_signal_value);
+    HAL_UART_Transmit(&huart2, (uint8_t*) tx_buffer, strlen(tx_buffer), HAL_MAX_DELAY);
 
     // Toggle the Green LED to indicate ADC activity
     HAL_GPIO_TogglePin(GPIOD, LD4_Green_Pin);
@@ -261,8 +263,6 @@ int main(void)
   {
 	  Poll_Button(); // Poll button state and update filter flag
 
-	  // Perform other periodic tasks here if needed
-	  // Example: You might want to add some other functionalities or delays
 	  HAL_Delay(10); // Small delay to avoid rapid polling
   }
   /* USER CODE END WHILE */
