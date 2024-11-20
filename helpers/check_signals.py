@@ -7,7 +7,7 @@ def plot_combined_emg(file_path):
     try:
         # Read the CSV file
         data = pd.read_csv(file_path)
-        time = data["Time (s)"].values
+        time = data["Time"].values
         amplitude = data["Amplitude"].values
 
         # Combine segments for Raw and FIR, with 24s cutoff
@@ -84,5 +84,5 @@ def plot_combined_emg(file_path):
 
 
 if __name__ == "__main__":
-    file_path = "emg_data_with_time.csv"  # Replace with the path to your CSV file
+    file_path = "data/emg_data_with_time.csv"  # Replace with the path to your CSV file
     plot_combined_emg(file_path)
