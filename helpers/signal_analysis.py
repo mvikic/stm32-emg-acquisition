@@ -1,260 +1,307 @@
+import sys
+import argparse
+from pathlib import Path
+from typing import Optional, Union
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
+from plotly.subplots import make_subplots
 from scipy.signal import welch
 
 
-def read_emg_data(recording_path):
-    """
-    # TODO: Add docstring
-    :param recording_path:
-    :return:
-    """
-    try:
-        data = pd.read_csv(recording_path, index_col="Time")
+class EMGAnalyzer:
+    def __init__(self, fs: Optional[int] = None, mode: Optional[str] = None) -> None:
+        """
+        Initialize the EMGAnalyzer with an optional sampling frequency.
 
-        raw_signal = data["Raw"] * 1e3
-        fir_signal = data["FIR"] * 1e3
-        iir_signal = data["IIR"] * 1e3
+        :param fs: Sampling frequency in Hz.
+        :param mode: Analysis mode, either "single" or "multi".
+        """
+        self._fs: Optional[int] = fs
+        self._mode: Optional[str] = mode
+        self._signals: dict[str, pd.Series] = {}
+        self.colors: dict[str, str] = {"Raw": "red", "FIR": "blue", "IIR": "orange"}
 
-        time = data.index.values
+    @property
+    def fs(self) -> Optional[int]:
+        return self._fs
 
-        return time, raw_signal, fir_signal, iir_signal
-    except Exception as e:
-        print(f"Error reading file: {e}")
-        return None, None, None, None
+    @fs.setter
+    def fs(self, value: int) -> None:
+        if value <= 0:
+            raise ValueError("Sampling frequency must be positive.")
+        self._fs = value
 
+    @property
+    def mode(self) -> Optional[str]:
+        return self._mode
 
-def calculate_rms(signal):
-    """
-    # TODO: Add docstring
-    :param signal:
-    :return:
-    """
-    return np.sqrt(np.mean(signal ** 2)) if len(signal) > 0 else np.nan
+    @mode.setter
+    def mode(self, value: str) -> None:
+        if value not in {"single", "multi"}:
+            raise ValueError("Mode must be 'single' or 'multi'.")
+        self._mode = value
 
+    @property
+    def signals(self) -> dict[str, pd.Series]:
+        return self._signals
 
-def plot_time_series(raw_data, fir_data, iir_data):
-    """
-    # TODO: Add docstring
-    :param raw_data:
-    :param fir_data:
-    :param iir_data:
-    :return:
-    """
-    fig = go.Figure()
+    def calculate_sampling_frequency(self, time_data: np.ndarray) -> None:
+        """
+        Calculate and set the sampling frequency from the signal's index.
 
-    hover_template = "<b>Time:</b> %{x:.3f} s<br><b>Amplitude:</b> %{y:.3} mV<br>"  # <extra>Custom Note</extra>"
+        :param time_data: Array containing time indices.
+        """
+        self.fs = int(1 / (time_data[1] - time_data[0]))
 
-    fig.add_trace(
-        go.Scatter(
-            x=raw_data.index,
-            y=raw_data,
-            mode="lines",
-            name="Raw EMG",
-            line=dict(color="red"),
-            hovertemplate=hover_template,
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=fir_data.index,
-            y=fir_data,
-            mode="lines",
-            name="FIR Filtered EMG",
-            line=dict(color="blue"),
-            hovertemplate=hover_template,
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=iir_data.index,
-            y=iir_data,
-            mode="lines",
-            name="IIR Filtered EMG",
-            line=dict(color="orange"),
-            hovertemplate=hover_template,
-        )
-    )
+    def read_data(self, file_paths: Union[Path, list[Path]]) -> None:
+        """
+        Read EMG data from either a single file or multiple files.
 
-    fig.update_layout(
-        title="Time-domain EMG Signals (Raw, FIR, IIR)",
-        xaxis_title="Time (s)",
-        yaxis_title="Amplitude",
-        showlegend=True,
-        template="plotly_dark",
-        title_font=dict(color="white"),
-        font=dict(color="white"),
-        paper_bgcolor="black",
-        plot_bgcolor="black",
-        xaxis=dict(gridcolor="gray"),
-        yaxis=dict(gridcolor="gray"),
-    )
-    fig.show(
-        config={
-            "scrollZoom": True,
-            "displaylogo": False,
-            "modeBarButtonsToAdd": [
-                "drawline",
-                "drawopenpath",
-                "eraseshape",
-                "hovercompare",
-                "hoverclosest",
-            ],
-            "modeBarButtonsToRemove": [
-                "lasso2d",
-                "zoomIn2d",
-                "zoomOut2d",
-            ],
+        :param file_paths: A single path for "single" mode, or a list of three paths for "multi" mode.
+        """
+        try:
+            if self.mode == "single":
+                data: pd.DataFrame = pd.read_csv(file_paths, index_col="Time")
+                self._signals = {key: data[key] * 1e3 for key in ["Raw", "FIR", "IIR"]}
+                if not self.fs:
+                    self.calculate_sampling_frequency(time_data=data.index.to_numpy())
+
+            elif self.mode == "multi":
+                names: list[str] = ["Raw", "FIR", "IIR"]
+                self._signals = {
+                    name: pd.read_csv(path, index_col="Time")["Amplitude"].iloc[1:] * 1e3
+                    for name, path in zip(names, file_paths)
+                }
+                if not self.fs:
+                    self.calculate_sampling_frequency(time_data=self.signals["Raw"].index.to_numpy())
+
+            else:
+                raise ValueError("Mode must be 'single' or 'multi'.")
+
+        except Exception as e:
+            print(f"Error reading data: {e}")
+
+    def calculate_rms(self) -> dict[str, float]:
+        """
+        Calculate the RMS values of all signals.
+
+        :return: dictionary of RMS values.
+        """
+        return {
+            name: float(np.sqrt(np.mean(signal.dropna() ** 2)))
+            for name, signal in self.signals.items()
         }
-    )
 
+    def plot_time_series(self) -> None:
+        """
+        Plot time-domain signals in either a single plot or multiple subplots.
+        """
+        hover_template: str = "<b>Time:</b> %{x:.3f} s<br><b>Amplitude:</b> %{y:.3} mV<br>"
 
-def plot_frequency_spectrum(raw_data, fir_data, iir_data, fs):
-    """
-    # TODO: Add docstring
-    :param raw_data:
-    :param fir_data:
-    :param iir_data:
-    :param fs:
-    :return:
-    """
-    f_raw, p_xx_raw = welch(raw_data, fs, nperseg=1024)
-    f_fir, p_xx_fir = welch(fir_data, fs, nperseg=1024)
-    f_iir, p_xx_iir = welch(iir_data, fs, nperseg=1024)
+        if self.mode == "single":
+            fig: go.Figure = go.Figure()
+            for name, signal in self.signals.items():
+                signal_no_nan: pd.Series = signal.dropna()
+                fig.add_trace(
+                    go.Scatter(
+                        x=signal_no_nan.index,
+                        y=signal_no_nan,
+                        mode="lines",
+                        name=f"{name} EMG",
+                        line=dict(color=self.colors[name]),
+                        xaxis=dict(gridcolor="lightgray"),
+                        yaxis=dict(gridcolor="lightgray"),
+                        hovertemplate=hover_template,
+                    )
+                )
 
-    fig = go.Figure()
+            fig.update_layout(
+                title="Time-domain EMG Signals (Single recording)",
+                xaxis_title="Time (s)",
+                yaxis_title="Amplitude (mV)",
+                template="plotly_white",
+            )
 
-    hover_template = "<b>Frequency:</b> %{x:.1f} Hz<br><b>PSD:</b> %{y} dB/Hz<br>"
+        elif self.mode == "multi":
+            num_signals: int = len(self.signals)
+            fig: go.Figure = make_subplots(
+                rows=num_signals,
+                cols=1,
+                shared_xaxes=True,
+                subplot_titles=list(self.signals.keys()),
+                vertical_spacing=0.1,
+            )
 
-    fig.add_trace(
-        go.Scatter(
-            x=f_raw,
-            y=p_xx_raw,
-            mode="lines",
-            name="Raw EMG",
-            line=dict(color="red"),
-            hovertemplate=hover_template,
+            for i, (name, signal) in enumerate(self.signals.items(), start=1):
+                fig.add_trace(
+                    go.Scatter(
+                        x=signal.index,
+                        y=signal,
+                        mode="lines",
+                        name=f"{name} EMG",
+                        line=dict(color=self.colors[name]),
+                        hovertemplate=hover_template,
+                    ),
+                    row=i,
+                    col=1,
+                )
+
+            fig.update_layout(
+                title="Time-domain EMG Signals (Multiple recordings)",
+                xaxis_title="Time (s)",
+                template="plotly_white",
+                # height=300 * num_signals,
+            )
+
+            for i, name in enumerate(self.signals.keys(), start=1):
+                fig.update_xaxes(gridcolor="lightgray")
+                fig.update_yaxes(title_text=f"{name} Amplitude (mV)", row=i, col=1, gridcolor="lightgray")
+
+        else:
+            raise ValueError("Invalid mode. Use 'single' or 'multi'.")
+
+        fig.show(
+            config={
+                "scrollZoom": True,
+                "displaylogo": False,
+            }
         )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=f_fir,
-            y=p_xx_fir,
-            mode="lines",
-            name="FIR Filtered EMG",
-            line=dict(color="blue"),
-            hovertemplate=hover_template,
+
+    def plot_frequency_spectrum(self) -> None:
+        """
+        Plot frequency-domain power spectral density (PSD) for all signals.
+        """
+        fig: go.Figure = go.Figure()
+        hover_template: str = "<b>Frequency:</b> %{x:.1f} Hz<br><b>PSD:</b> %{y} dB/Hz<br>"
+
+        for name, signal in self.signals.items():
+            f: np.ndarray
+            pxx: np.ndarray
+            f, pxx = welch(signal.dropna(), self.fs, nperseg=1024)
+            fig.add_trace(
+                go.Scatter(
+                    x=f,
+                    y=pxx,
+                    mode="lines",
+                    name=f"{name} EMG",
+                    line=dict(color=self.colors[name]),
+                    hovertemplate=hover_template,
+                )
+            )
+
+        fig.update_layout(
+            title="Frequency-domain Power Spectral Density (PSD) of EMG Signals",
+            xaxis_title="Frequency (Hz)",
+            yaxis_title="Power Spectral Density (dB/Hz)",
+            template="plotly_white",
+            xaxis=dict(gridcolor="lightgray"),
+            yaxis=dict(gridcolor="lightgray"),
         )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=f_iir,
-            y=p_xx_iir,
-            mode="lines",
-            name="IIR Filtered EMG",
-            line=dict(color="orange"),
-            hovertemplate=hover_template,
+
+        fig.update_layout(
+            updatemenus=[
+                dict(
+                    type="buttons",
+                    showactive=True,
+                    buttons=[
+                        dict(
+                            label="Linear Scale",
+                            method="relayout",
+                            args=[{"yaxis.type": "linear"}],
+                        ),
+                        dict(
+                            label="Log Scale",
+                            method="relayout",
+                            args=[{"yaxis.type": "log"}],
+                        ),
+                    ],
+                    x=0.85,
+                    y=1.15,
+                    xanchor="center",
+                    yanchor="top",
+                    bgcolor="white",
+                    bordercolor="white",
+                    font=dict(color="gray"),
+                )
+            ]
         )
+
+        fig.show(
+            config={
+                "scrollZoom": True,
+                "displaylogo": False,
+                "modeBarButtonsToAdd": [
+                    "drawline",
+                    "drawopenpath",
+                    "eraseshape",
+                    "hovercompare",
+                    "hoverclosest",
+                ],
+                "modeBarButtonsToRemove": [
+                    "lasso2d",
+                    "zoomIn2d",
+                    "zoomOut2d",
+                ],
+            }
+        )
+
+    def plot_rms_comparison(self) -> None:
+        """
+        Plot a bar chart comparing RMS values for all signals.
+        """
+        rms_values: dict[str, float] = self.calculate_rms()
+        fig = px.bar(
+            x=list(rms_values.keys()),
+            y=list(rms_values.values()),
+            labels={"x": "Signal Type", "y": "RMS Value"},
+            title="RMS Value Comparison (Raw, FIR, IIR)",
+        )
+        fig.update_layout(template="plotly_dark")
+        fig.show()
+
+    def analyze(self) -> None:
+        """
+        Perform full analysis: time-series plot, frequency spectrum, and RMS comparison.
+        """
+        rms_values: dict[str, float] = self.calculate_rms()
+        for name, rms in rms_values.items():
+            print(f"RMS Value ({name} EMG): {rms:.4f}")
+
+        self.plot_time_series()
+        self.plot_frequency_spectrum()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="EMG Signal Analysis Tool")
+    parser.add_argument(
+        "--single",
+        type=Path,
+        help="Path to a single CSV file containing all signals (Raw, FIR, IIR).",
     )
-
-    fig.update_layout(
-        title="Frequency-domain Power Spectral Density (PSD) of EMG Signals",
-        xaxis_title="Frequency (Hz)",
-        yaxis_title="Power Spectral Density (dB/Hz)",
-        showlegend=True,
-        template="plotly_dark",
-        title_font=dict(color="white"),
-        font=dict(color="white"),
-        paper_bgcolor="black",
-        plot_bgcolor="black",
-        xaxis=dict(gridcolor="gray"),
-        yaxis=dict(gridcolor="gray", type="log"),
+    parser.add_argument(
+        "--multi",
+        nargs=3,
+        type=Path,
+        metavar=("RAW", "FIR", "IIR"),
+        help="Paths to three CSV files (RAW, FIR, IIR).",
     )
+    args = parser.parse_args()
 
-    # Show the figure with a full set of analysis tools
-    fig.show(
-        config={
-            "scrollZoom": True,
-            "displaylogo": False,
-            "modeBarButtonsToAdd": [
-                "drawline",
-                "drawopenpath",
-                "eraseshape",
-                "hovercompare",
-                "hoverclosest",
-            ],
-            "modeBarButtonsToRemove": [
-                "lasso2d",
-                "zoomIn2d",
-                "zoomOut2d",
-            ],
-        }
-    )
+    if not (args.single or args.multi):
+        parser.error("You must provide either --single or --multi arguments.")
+        sys.exit(1)
 
-    # fig.show()
+    mode: str
+    data: Union[Path, list[Path]]
+    mode, data = ("single", args.single) if args.single else ("multi", args.multi)
 
-
-def plot_rms_comparison(rms_raw, rms_fir, rms_iir):
-    """
-    # TODO: Add docstring
-    :param rms_raw:
-    :param rms_fir:
-    :param rms_iir:
-    :return:
-    """
-    labels = ["Raw", "FIR Filtered", "IIR Filtered"]
-    rms_values = [rms_raw, rms_fir, rms_iir]
-
-    fig = px.bar(
-        x=labels,
-        y=rms_values,
-        labels={"x": "Signal Type", "y": "RMS Value"},
-        title="RMS Value Comparison (Raw, FIR, IIR)",
-    )
-    fig.update_layout(
-        template="plotly_dark",
-        title_font=dict(color="white"),
-        font=dict(color="white"),
-        paper_bgcolor="black",
-        plot_bgcolor="black",
-        xaxis=dict(gridcolor="gray"),
-        yaxis=dict(gridcolor="gray"),
-    )
-    fig.show()
-
-
-def main(recording_path):
-    """
-    # TODO: Add docstring
-    :param recording_path:
-    :return:
-    """
-    time, raw_signal, fir_signal, iir_signal = read_emg_data(recording_path)
-    if time is None:
-        return
-
-    # Sampling frequency based on time step
-    fs = int(1 / (time[1] - time[0]))
-
-    raw_signal_no_nan = raw_signal.dropna()
-    fir_signal_no_nan = fir_signal.dropna()
-    iir_signal_no_nan = iir_signal.dropna()
-
-    rms_raw = calculate_rms(raw_signal_no_nan)
-    rms_fir = calculate_rms(fir_signal_no_nan)
-    rms_iir = calculate_rms(iir_signal_no_nan)
-
-    print(f"RMS Value (Raw EMG): {rms_raw:.4f}")
-    print(f"RMS Value (FIR Filtered EMG): {rms_fir:.4f}")
-    print(f"RMS Value (IIR Filtered EMG): {rms_iir:.4f}")
-
-    plot_time_series(raw_signal_no_nan, fir_signal_no_nan, iir_signal_no_nan)
-    plot_frequency_spectrum(raw_signal_no_nan, fir_signal_no_nan, iir_signal_no_nan, fs)
-    plot_rms_comparison(rms_raw, rms_fir, rms_iir)
+    analyzer = EMGAnalyzer(mode=mode)
+    analyzer.read_data(data)
+    analyzer.analyze()
 
 
 if __name__ == "__main__":
-    file_path = "data/emg_data_segmented_corrected.csv"
-    main(file_path)
+    main()
