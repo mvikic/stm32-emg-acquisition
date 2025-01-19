@@ -43,7 +43,7 @@ The FIR and IIR filters are designed using Python's `scipy` library. The design 
 - **Band-Stop Filter**: Attenuates 50Hz (power grid noise)
 - **Low-Pass Filter**: Attenuates frequencies above 500Hz
 
-![image](docs/fir-coeff-calc-example.png)
+![image](res/img/fir-coeff-calc-example.png)
 
 ### Circular Buffer Initialization
 

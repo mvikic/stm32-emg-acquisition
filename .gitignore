@@ -131,3 +131,8 @@ ehthumbs.db
 
 # Ignore local config files
 config.local.json
+
+# Other
+screen-caps/
+prompts/
+sources/
