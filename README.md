@@ -8,12 +8,13 @@ This project implements an EMG (Electromyography) signal acquisition and filteri
 - [Hardware Requirements](#hardware-requirements)
 - [Software Requirements](#software-requirements)
 - [Filter Design](#filter-design)
-- [Implementation Details](#implementation-details)
+- [Power Spectral Density (PSD) Analysis](#power-spectral-density-psd-analysis)
+- TODO: [Implementation Details](#implementation-details)
   - [Circular Buffer](#circular-buffer)
   - [FIR Filter Implementation](#fir-filter-implementation)
-- [How to Build and Run](#how-to-build-and-run)
-- [Usage](#usage)
-- [License](#license)
+- TODO: [How to Build and Run](#how-to-build-and-run)
+- TODO: [Usage](#usage)
+- TODO: [License](#license)
 
 ## Introduction
 
@@ -43,35 +44,12 @@ The FIR and IIR filters are designed using Python's `scipy` library. The design 
 - **Band-Stop Filter**: Attenuates 50Hz (power grid noise)
 - **Low-Pass Filter**: Attenuates frequencies above 500Hz
 
-![image](res/img/fir-coeff-calc-example.png)
+![Filter Design](res/img/fir-coeff-calc-example.png)
 
-### Circular Buffer Initialization
+## Power Spectral Density (PSD) Analysis
+The following image shows the Power Spectral Density (PSD) of the acquired EMG signal, highlighting the 50Hz power grid noise. The PSD plot demonstrates the effectiveness of the filter in attenuating the 50Hz noise component, which is critical for obtaining clean EMG signals.
 
-```c
-void CircularBuffer_Init(CircularBuffer* cb) {
-    memset(cb->buffer, 0, sizeof(cb->buffer));
-    cb->index = 0;
-}
-```
+![Power Spectral Density (PSD) at 50Hz](res/img/psd_50Hz.png)
 
-
-### FIR Filter Implementation
-
-```c
-float FIR_Filter(CircularBuffer* cb, float input) {
-    float sum = 0.0f;
-
-    // Update buffer with new input
-    cb->buffer[cb->index] = input;
-    cb->index = (cb->index + 1) % FILTER_ORDER;
-
-    // Compute the FIR filter output
-    for (int i = 0; i < FILTER_ORDER; i++) {
-        int idx = (cb->index + i) % FILTER_ORDER; // Circular indexing
-        sum += cb->buffer[idx] * fir_coefficients[i];
-    }
-
-    return sum;
-}
-```
+As seen in the plot, the 50Hz noise is significantly reduced after applying the FIR/IIR filters, ensuring that the EMG signal retains its relevant frequency components while eliminating interference from the power grid.
 
